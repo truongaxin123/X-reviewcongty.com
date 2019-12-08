@@ -3,8 +3,8 @@ from urllib.request import urlretrieve
 import requests
 import logging
 
-class Comment:
 
+class Comment:
     def __init__(self, link_review, name, reaction, time, content):
         self.__link_review = link_review
         self.__name = name
@@ -12,20 +12,21 @@ class Comment:
         self.__time = time
         self.__content = content
 
-    def getLinkReview(self):
+    def get_link_review(self):
         return self.__link_review
 
-    def getName(self):
+    def get_name(self):
         return self.__name[0:-3]
 
-    def getReaction(self):
+    def get_reaction(self):
         return self.__reaction
 
-    def getTime(self):
+    def get_time(self):
         return self.__time
 
-    def getContent(self):
+    def get_content(self):
         return self.__content
+
 
 class Review:
 
@@ -46,8 +47,9 @@ class Review:
     def __repr__(self):
         return f'<Review {self.__name}>'
     
-    def getListComment(self):
+    def get_list_comment(self):
         pass
+
 
 class Company:
 
@@ -67,32 +69,32 @@ class Company:
     def __str__(self):
         return f'<Company {self.__name}>'
 
-    def downloadImageOfThisCompany(self, save_at):
+    def download_image_of_this_company(self, save_at):
         filename = self.__image.split('/')[-1]
         urlretrieve(self.__image, filename=filename)
     
-    def getName(self):
+    def get_name(self):
         return self.__name
 
-    def getType(self):
+    def get_type(self):
         return self.__type
 
-    def getAmountStaffs(self):
+    def get_amount_staffs(self):
         return self.__amount_staffs
 
-    def getAddress(self):
+    def get_address(self):
         return self.__address
 
-    def getAmountReviews(self):
+    def get_amount_reviews(self):
         return self.__amount_reviews
 
-    def getAmountPageReview(self):
+    def get_amount_page_reviews(self):
         return self.__amount_page_reviews
 
-    def getPageReviews(self, page)->list:
+    def get_review_on_page(self, page) -> list:
         list_reviews = []
         # code here...
-        params = {'page':page}
+        params = {'page': page}
         r = requests.get(self.__link, params=params)
         soup = BeautifulSoup(r.text, 'lxml')
         for review_card in soup(class_='review card'):
@@ -108,8 +110,7 @@ class Company:
             list_reviews.append(rv)
         return list_reviews
 
-
-    def gotoPageReviewOfThisCompany(self)->str:
+    def goto_page_review_of_this_company(self) -> str:
         return self.__link
 
 
@@ -117,45 +118,50 @@ class Crawler:
     __currentNumberOfCompanies = None
     __numberCompanyOfEachPage = 20
     
-    def getCurrentNumberOfPages(self):
-        if self.__currentNumberOfCompanies != None:
-            return
+    def get_current_number_of_page(self) -> int:
+        """Return amount the container page of the website"""
+        if self.__currentNumberOfCompanies:
+            return self.__currentNumberOfCompanies
         r = requests.get('https://reviewcongty.com/')
-        onlyPaginationSummary = SoupStrainer(class_='pagination-summary')
-        soup = BeautifulSoup(r.text, 'lxml', parse_only=onlyPaginationSummary)
-        paginationSummaryEle = soup.find(class_='pagination-summary')
-        return int(paginationSummaryEle.find_all('b')[1].string)
+        only_pagination_summary = SoupStrainer(class_='pagination-summary')
+        soup = BeautifulSoup(r.text, 'lxml', parse_only=only_pagination_summary)
+        pagination_summary_ele = soup.find(class_='pagination-summary')
+        return int(pagination_summary_ele.find_all('b')[1].string)
 
-    def getCurrentNumberOfCompanies(self):
+    def get_current_number_of_company(self) -> int:
+        """Return amount of the current company in the website, chỉ ở mức gần đúng."""
         logging.info('Get current number of companies')
-        return self.__numberCompanyOfEachPage * self.getCurrentNumberOfPages()
-        
-    def getListCompany(self, amount_company:int, option:str)->list:
-        '''`option`: latest, best, worst\nReturn a list of Company objects'''
-        if option not in ['latest','best','worst']:
-            raise 'Option is wrong'
+        return self.__numberCompanyOfEachPage * self.get_current_number_of_page()
 
-        params = {'tab':option}
-        r = requests.get('https://reviewcongty.com/',params=params)
+    @staticmethod
+    def get_list_company_from_option(amount_company: object, option: object) -> object:
+        """Lấy ra List các company object dựa theo option.\n
+        option: latest, best, worst\nReturn a list of Company objects"""
+        if option not in ['latest', 'best', 'worst']:
+            raise Exception('Option is wrong')
+
+        params = {'tab': option}
+        r = requests.get('https://reviewcongty.com/', params=params)
         if r.status_code == 200:
-            soup = BeautifulSoup(r.text,'lxml')
-            listCompanyEle = soup.find_all(class_='company-item', limit=amount_company)
-            
+            soup = BeautifulSoup(r.text, 'lxml')
+            list_company_element = soup.find_all(class_='company-item', limit=amount_company)
+
             out = []
-            for company in listCompanyEle:
+            for company in list_company_element:
                 link = f"https://reviewcongty.com{company['data-href']}"
                 image = company.img['src']
                 name = str(company.a.string).strip()
                 type_ = str(company.div(class_='company-info__other')[0].span.span.next_sibling).strip()
                 amount_reviews = int(str(company.span(class_='company-info__rating-count')[0].string).lstrip('(').rstrip(')'))
-                amount_staffs_str = str(company.div(class_='company-info__other')[0].find_all('span')[2].span.next_sibling).strip()
-                amount_staffs = tuple(int(i) for i in amount_staffs_str.split('-'))
+
+                amount_staffs = str(company.div(class_='company-info__other')[0].find_all('span')[2].span.next_sibling).strip()
+
                 address_str = str(company.div(class_='company-info__location')[0].span.span.next_sibling).strip()
                 address = ', '.join([i.strip() for i in address_str.split('\n')])
 
-                gotoReviewPage = requests.get(link)
+                goto_review_page = requests.get(link)
                 # số lượng trang chứa comment review của một công ty
-                soup_sub = BeautifulSoup(gotoReviewPage.text, 'lxml')
+                soup_sub = BeautifulSoup(goto_review_page.text, 'lxml')
                 if len(soup_sub.find_all(class_='pagination-summary')) > 0:
                     amount_page_reviews = int(soup_sub.find_all(class_='pagination-summary')[0].find_all('b')[1].string)
                 else:
@@ -173,7 +179,81 @@ class Crawler:
                 out.append(c)
         return out
 
-c = Crawler()
-print(c.getCurrentNumberOfCompanies())
-print(a:= c.getListCompany(3,'worst'))
-print(a[0].getPageReviews(1))
+    @staticmethod
+    def get_company_from_link(link: object) -> object:
+        """
+        @param link: str object
+        @return: list of Company object
+        """
+        r = requests.get(link)
+        if r.status_code == 200:
+            soup = BeautifulSoup(r.text, 'lxml')
+            company = soup.find('section', class_='company-info-company-page')
+
+            image = company.img['src']
+            name = str(company.a.string).strip()
+            type_ = str(company.div(class_='company-info__other')[0].span.span.next_sibling).strip()
+            amount_reviews = int(str(company.span(class_='company-info__rating-count')[0].string).lstrip('(').rstrip(')'))
+            
+            amount_staffs_str = str(company.div(class_='company-info__other')[0].find_all('span')[2].span.next_sibling).strip()
+            amount_staffs = tuple(int(i) for i in amount_staffs_str.split('-'))
+            
+            address_str = str(company.div(class_='company-info__location')[0].span.span.next_sibling).strip()
+            address = ', '.join([i.strip() for i in address_str.split('\n')])
+            
+            # số lượng trang chứa comment review của một công ty
+            if len(soup.find_all(class_='pagination-summary')) > 0:
+                amount_page_reviews = int(soup.find_all(class_='pagination-summary')[0].find_all('b')[1].string)
+            else:
+                amount_page_reviews = 1
+
+            c = Company(
+                        link=link,
+                        image=image,
+                        name=name, type_=type_,
+                        amount_reviews=amount_reviews,
+                        amount_staffs=amount_staffs,
+                        address=address,
+                        amount_page_reviews=amount_page_reviews)
+        return c
+
+    @staticmethod
+    def get_list_company_from_page(page: object) -> object:
+        """Lấy ra list company object dựa theo số page, nếu page vượt quá số lượng tối đa, trả về page 1"""
+        out = []
+        params = {'page': page}
+        r = requests.get('https://reviewcongty.com/', params=params)
+        if r.status_code == 200:
+            soup = BeautifulSoup(r.text,'lxml')
+            list_company_ele = soup.find_all(class_='company-item')
+
+            out = []
+            for company in list_company_ele:
+                link = f"https://reviewcongty.com{company['data-href']}"
+                image = company.img['src']
+                name = str(company.a.string).strip()
+                type_ = str(company.div(class_='company-info__other')[0].span.span.next_sibling).strip()
+                amount_reviews = int(str(company.span(class_='company-info__rating-count')[0].string).lstrip('(').rstrip(')'))
+                amount_staffs = str(company.div(class_='company-info__other')[0].find_all('span')[2].span.next_sibling).strip()
+                address_str = str(company.div(class_='company-info__location')[0].span.span.next_sibling).strip()
+                address = ', '.join([i.strip() for i in address_str.split('\n')])
+
+                goto_review_page = requests.get(link)
+                # số lượng trang chứa comment review của một công ty
+                soup_sub = BeautifulSoup(goto_review_page.text, 'lxml')
+                if len(soup_sub.find_all(class_='pagination-summary')) > 0:
+                    amount_page_reviews = int(soup_sub.find_all(class_='pagination-summary')[0].find_all('b')[1].string)
+                else:
+                    amount_page_reviews = 1
+
+                c = Company(
+                        link=link,
+                        image=image,
+                        name=name, type_=type_,
+                        amount_reviews=amount_reviews,
+                        amount_staffs=amount_staffs,
+                        address=address,
+                        amount_page_reviews=amount_page_reviews)
+
+                out.append(c)
+        return out
